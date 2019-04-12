@@ -1,0 +1,17 @@
+{
+  "name": "aoc-2018-day13",
+  "version": "0.0.1",
+  "private": true,
+  "devDependencies": {
+    "shadow-cljs": "2.7.3"
+  },
+  "dependencies": {
+    "create-react-class": "^15.6.3",
+    "react": "^16.8.6",
+    "react-dom": "^16.8.6",
+    "three": "^0.103.0",
+    "three-gltf-loader": "^1.103.0",
+    "three-instanced-mesh": "^0.96.2",
+    "three-orbitcontrols": "^2.102.1"
+  }
+}
