@@ -6,7 +6,9 @@
                    [cljs.core.async :refer [go]]))
 
 (defonce ^:private models-to-load {"carGreen" "models/raceCarGreen.glb"
-                                   "carRed" "models/raceCarRed.glb"})
+                                   "carRed" "models/raceCarRed.glb"
+                                   "carOrange" "models/raceCarOrange.glb"
+                                   "carWhite" "models/raceCarWhite.glb"})
 (defonce ^:private models (js/Map.))
 
 

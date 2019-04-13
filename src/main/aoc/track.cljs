@@ -40,7 +40,7 @@
                               "^" "|"
                               "v" "|"})
 
-(def decor-models ["tree" "flag"])
+(def decor-models ["tree" "flag" "treeLarge"])
 
 (defn- track-text-to-array [txt]
   (let [a (array)]
@@ -126,6 +126,6 @@
 (defn init! []
   (fetch "/input.txt" (fn [input-txt]
                         (let [as-array (track-text-to-array input-txt)]
-                          (kart/init! as-array)
                           (swap! state assoc :track-map (encode-map as-array))
-                          (swap! state assoc :track (parse-track input-txt))))))
+                          (swap! state assoc :track (parse-track input-txt))
+                          (kart/init! as-array)))))

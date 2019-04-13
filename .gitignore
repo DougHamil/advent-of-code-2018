@@ -3,6 +3,7 @@ public/js
 
 /target
 /checkouts
+/all_models
 /src/gen
 
 pom.xml

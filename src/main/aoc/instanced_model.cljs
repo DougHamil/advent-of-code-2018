@@ -20,7 +20,9 @@
                                    "flag" {:filepath "models/flagTankco.glb"
                                            :offset [0 0 0]}
                                    "tree" {:filepath "models/treeSmall.glb"
-                                           :offset [0 0 0]}})
+                                           :offset [0 0 0]}
+                                   "treeLarge" {:filepath "models/treeLarge.glb"
+                                                :offset [0 0 0]}})
 
 (def cast-shadows-disabled #{"roadCorner" "roadStraight" "roadEnd" "roadCrossing"})
 (defonce ^:private models (js/Map.))

@@ -6,6 +6,7 @@
     "shadow-cljs": "2.7.3"
   },
   "dependencies": {
+    "@tweenjs/tween.js": "^17.3.0",
     "create-react-class": "^15.6.3",
     "postprocessing": "^6.2.1",
     "react": "^16.8.6",

@@ -1,6 +1,5 @@
 (ns aoc.ui
   (:require [reagent.core :as r]
-            [aoc.kart :refer [add-kart!]]
             [aoc.state :refer [state postfx-state]]))
 
 
@@ -14,7 +13,7 @@
                           (swap! postfx-state assoc :focus 0.85)
                           (swap! state assoc :follow-kart-id (:id kart)))}]
    [:span
-    [:span (str (:coords kart))]
+    [:span (str (:id kart) " - " (:coords kart))]
     (when (= :crashed (:state kart))
       [:img {:src "fire.png"
              :style {:width "20px"}}])]])
@@ -29,8 +28,8 @@
                           (swap! postfx-state assoc :focus 1.0)
                           (swap! state assoc :follow-kart-id nil))}]
    [:span "None"]
-   (when-let [karts @(r/cursor state [:karts])]
-     (for [[key kart] karts]
+   (when-let [karts (sort-by :index @(r/cursor state [:karts]))]
+     (for [kart karts]
        ^{:key (:id kart)}
        [kart-selector kart]))])
 
@@ -39,21 +38,23 @@
    [:div
     [:label "Focus:"]
     [:input {:type "range"
-             :min "0.0"
+             :style {:float "right"}
+             :min "0.6"
              :max "1.0"
              :step "0.005"
              :value @(r/cursor postfx-state [:focus])
              :on-change #(swap! postfx-state assoc :focus (-> % .-target .-value js/parseFloat))}]]
+   [:br]
    [:div
-    [:label "Sim Speed:"]
+    [:label "Speed:"]
     [:input {:type "range"
-             :min "0"
-             :max "500"
-             :step "1"
+             :min "-100"
+             :style {:float "right"}
+             :max "100"
+             :step "0.5"
              :value @(r/cursor state [:simulation-speed-scale])
              :on-change #(swap! state assoc :simulation-speed-scale (js/parseInt (.-value (.-target %))))}]]
-   [:button {:on-click add-kart!}
-            "Add Kart"]])
+   [:br]])
     
     
 
@@ -62,7 +63,9 @@
    [:label (str "Current Tick: " (int @(r/cursor state [:sim-time])))]])
 
 (defn root []
-  [:div {:style {:background-color "rgba(255, 255, 255, 0.9)"}}
+  [:div {:style {:background-color "rgba(0, 0, 0, 0.2)"
+                 :padding "10px"
+                 :color "white"}}
    [info]
    [:hr]
    [input]

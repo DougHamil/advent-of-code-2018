@@ -41,7 +41,8 @@
     (let [composer (postfx/EffectComposer. (.-renderer ctx))
           camera (.-camera ctx)
           bokeh-effect (postfx/BokehEffect. #js {:dof 0.00
-                                                 :aperture 0.08
+                                                 :aperture 0.05
+                                                 :maxBlur 0.2
                                                  :focus (:focus @postfx-state)})
           effect-pass (postfx/EffectPass. camera
                                           bokeh-effect

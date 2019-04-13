@@ -2,8 +2,14 @@
   (:require [aoc.state :refer [state]]
             [threeagent.alpha.core :as th]
             [aoc.util :as util]
-            [aoc.models :as models]))
+            [aoc.models :as models]
+            ["@tweenjs/tween.js" :as tween]
+            ["three" :as three]))
+
+(defonce simulation-ticks 10000)
 (defonce pi-over-2 (/ js/Math.PI 2.0))
+
+(defonce car-models ["carRed" "carGreen" "carOrange" "carWhite"])
 
 (def direction->velocity {:down [0 0 1]
                           :up [0 0 -1]
@@ -19,6 +25,11 @@
                        "^" :up
                        "<" :left
                        ">" :right})
+
+(def interpolation-fn (-> tween
+                          (.-Easing)
+                          (.-Back)
+                          (.-InOut)))
 
 (def turn-order [:left :straight :right])
 
@@ -37,8 +48,9 @@
 (defn render []
   (if-let [karts @(th/cursor state [:karts])]
     [:object
-     (for [[id k] karts]
-       [:model {:type "carRed"
+     (for [k karts]
+       ^{:key (:id k)}
+       [:model {:type (nth car-models (mod (:index k) (count car-models)))
                 :rotation (:rotation k)
                 :scale [0.7 0.7 0.7]
                 :position (:position k)}])]
@@ -90,13 +102,35 @@
         (assoc :last-coords (:coords k))
         (assoc :coords new-coords))))
 
-(defn- position-kart [sim-delta-time k]
-  (let [p (map-coords->pos (:coords k))
-        v (map (partial * sim-delta-time)
-               (direction->velocity (:direction k)))]
+(defn- rot->quat [[x y z]]
+  (doto (three/Quaternion.)
+    (.setFromEuler (three/Euler. x y z "XYZ"))))
+
+(defn- lerp [delta-time]
+  (interpolation-fn delta-time))
+
+(defn- lerp-rotation [delta-time dir next-dir]
+  (let [a (direction->rotation dir)
+        b (direction->rotation next-dir)
+        qa (rot->quat a)
+        qb (rot->quat b)
+        q (.slerp qa qb (lerp delta-time))
+        e (doto (three/Euler.)
+            (.setFromQuaternion q))]
+    [(.-x e) (.-y e) (.-z e)]))
+
+(defn- position-kart [sim-delta-time k next-k]
+  (let [p (map-coords->pos (:coords k))]
     (if (= :crashed (:state k))
-      (assoc k :position p)
-      (assoc k :position (map + v p)))))
+      (-> k
+          (assoc :position p))
+      (let [v (map (partial * sim-delta-time)
+                   (direction->velocity (:direction k)))]
+        (-> k
+            (assoc :rotation (lerp-rotation sim-delta-time
+                                            (:direction k)
+                                            (:direction next-k)))
+            (assoc :position (map + v p)))))))
 
 
 (defn- handle-intersection [k]
@@ -105,7 +139,6 @@
         new-dir (apply-turn turn (:direction k))]
     (-> k
         (assoc :direction new-dir)
-        (assoc :rotation (direction->rotation new-dir))
         (assoc :turn-idx (mod (int (inc turn-idx))
                               (count turn-order))))))
 
@@ -150,13 +183,9 @@
       (if (> by ay)
         -1
         1))))
-(comment
-  (println (group-by :state (vals (:karts @state)))))
 
-(defn- simulation-tick! []
-  (let [all-karts (vals (:karts @state))
-        track-map (:track-map @state)
-        grouped-karts (group-by :state all-karts)
+(defn- simulation-tick [track-map all-karts]
+  (let [grouped-karts (group-by :state all-karts)
         sorted-karts (sort-by kart-sort (:driving grouped-karts))
         ticked-karts
           (reduce
@@ -177,42 +206,29 @@
                      :crashed crashed}))))
             (assoc grouped-karts :collided #{})
             sorted-karts)]
-    (swap! state assoc :karts (index-by-id (concat (:driving ticked-karts) (:crashed ticked-karts))))))
+    (sort-by :id (concat (:driving ticked-karts) (:crashed ticked-karts)))))
 
 (defn tick! [delta-time]
-  (when (and (:karts @state)
-             (:track-map @state))
-    (let [sim-speed-scale (:simulation-speed-scale @state)
-          sim-time (or (:sim-time @state) 0)
-          sim-tick (int sim-time)
-          new-sim-time (+ sim-time (* sim-speed-scale delta-time))
-          new-sim-tick (int new-sim-time)
-          sim-delta (- new-sim-time new-sim-tick)]
-      (doseq [t (range (- new-sim-tick sim-tick))]
-        (simulation-tick!))
-      (swap! state assoc :karts (index-by-id (map (partial position-kart sim-delta) (vals (:karts @state)))))
-      (swap! state assoc :sim-time new-sim-time))))
-
-(defn- find-horizontal-tile [track]
-  (let [size (count track)]
-    (loop [[x y] [0 0]]
-      (if-not (= :horizontal (util/aget2d track x y))
-        (recur [(rand-int size) (rand-int size)])
-        [x y]))))
-
-(defn add-kart! []
-  (let [track (:track-map @state)
-        [x y] (find-horizontal-tile track)]
-    (swap! state update :karts (fn [ks]
-                                 (assoc ks (str x "," y)
-                                  {:position [x (- y) 0]
-                                   :state :driving
-                                   :id (str x "," y)
-                                   :coords [x y]
-                                   :last-coords [x y]
-                                   :rotation (direction->rotation :right)
-                                   :turn-idx 0
-                                   :direction :right})))))
+  (let [{:keys [karts track-map]} @state]
+    (when (and karts track-map)
+      (let [{:keys [simulation-speed-scale sim-time all-ticks]} @state
+            sim-time (or sim-time 0)
+            new-sim-time (+ sim-time (* simulation-speed-scale delta-time))
+            new-sim-tick (int new-sim-time)
+            sim-delta (- new-sim-time new-sim-tick)]
+        (when (and (>= new-sim-tick 0)
+                   (< new-sim-tick (dec (count all-ticks))))
+          (swap! state
+                 (fn [s]
+                   (let [this-tick (nth all-ticks new-sim-tick)
+                         next-tick (nth all-ticks (inc new-sim-tick))
+                         karts (map (partial position-kart sim-delta)
+                                    this-tick
+                                    next-tick)]
+                                    
+                     (-> s
+                         (assoc :karts karts)
+                         (assoc :sim-time new-sim-time))))))))))
 
 (defn init! [track-text-array]
   (let [height (count track-text-array)
@@ -224,13 +240,23 @@
           (when-let [d (token->direction c)]
             (.push karts {:position [x (- y) 0]
                           :state :driving
-                          :id (str x "," y)
+                          :index (.-length karts)
+                          :id (.-length karts)
                           :coords [x y]
                           :last-coords [x y]
                           :rotation (direction->rotation d)
                           :turn-idx 0
                           :direction d})))))
-    (swap! state assoc :karts (index-by-id karts))))
+    (swap! state assoc :karts (vec karts))
+    (let [track-map (:track-map @state)
+          karts (vec karts)
+          all-ticks
+          (reduce (fn [acc tick]
+                    (conj acc (simulation-tick track-map (last acc))))
+                  [karts]
+                  (range simulation-ticks))]
+      (swap! state assoc :all-ticks all-ticks))))
+
 
 (comment
   (:track-map @state))

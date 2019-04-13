@@ -12,7 +12,7 @@
   (set! (.-x (.-mapSize shadow)) 2048)
   (set! (.-y (.-mapSize shadow)) 2048)
   (set! (.-enabled shadow) true)
-  (set! (.-bias shadow) 0.001))
+  (set! (.-bias shadow) 0.00001))
 (let [shadow-cam (.-camera (.-shadow directional-light))]
   (set! (.-near shadow-cam) 1)
   (set! (.-left shadow-cam) -20)
@@ -38,10 +38,11 @@
           (.-y (.-position directional-light))
           (+ (.-z (.-position cam)) 10)))
   (if-let [follow-kart-id @(th/cursor state [:follow-kart-id])]
-    (let [kart (get @(th/cursor state [:karts]) follow-kart-id)
+    (let [kart (first (filter #(= follow-kart-id (:id %))
+                              @(th/cursor state [:karts])))
           [x y z] (:position kart)
           cam (:camera @state)]
-      (.set (.-position cam) x (+ y 5) (+ z -5))
+      (.set (.-position cam) x (+ y 3.5) (+ z -6))
       (.lookAt cam (three/Vector3. x y z))
       (when-let [orbit (:orbit-controls @state)]
         (set! (.-target orbit) (three/Vector3. x y z))
