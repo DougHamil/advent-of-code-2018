@@ -17,13 +17,26 @@
                                                    :offset [0 0 0]}
                                    "roadCorner" {:filepath "models/roadCornerSmall2.glb"
                                                  :offset [0 0 0]}
+                                   "flag" {:filepath "models/flagTankco.glb"
+                                           :offset [0 0 0]}
                                    "tree" {:filepath "models/treeSmall.glb"
                                            :offset [0 0 0]}})
+
+(def cast-shadows-disabled #{"roadCorner" "roadStraight" "roadEnd" "roadCrossing"})
 (defonce ^:private models (js/Map.))
+
+(defn- flatten-obj [m]
+  (conj (mapcat flatten-obj (.-children m))
+        m))
+
+(defn- find-meshes [m]
+  (let [flattened (flatten-obj m)]
+    (filter #(= "Mesh" (.-type %))
+            flattened)))
         
 (defcomponent :instanced-models [{:keys [type instances]}]
   (let [source-model (.get models type)
-        source-meshes (.-children source-model)
+        source-meshes (find-meshes source-model)
         [ox oy oz] (:offset (get models-to-load type))
         instance-count (count instances)
         meshes (map (fn [m]
@@ -37,17 +50,20 @@
     (doseq [[idx i] (map-indexed vector instances)]
       (let [[px py pz] (:position i)
             [rx ry rz] (:rotation i)
+            [sx sy sz] (or (:scale i) [1 1 1])
             euler (three/Euler. rx ry rz "XYZ")
             position (three/Vector3. px py pz)
+            scale (three/Vector3. sx sy sz)
             rotation (three/Quaternion.)]
         (.add position offset)
         (.setFromEuler rotation euler)
         (doseq [m meshes]
-          (set! (.-castShadow m) true)
+          (when-not (cast-shadows-disabled type)
+            (set! (.-castShadow m) true))
           (set! (.-receiveShadow m) true)
           (.setPositionAt m idx position)
           (.setQuaternionAt m idx rotation)
-          (.setScaleAt m idx (three/Vector3. 1 1 1)))))
+          (.setScaleAt m idx scale))))
     (doseq [m meshes]
       (.add parent m))
     parent))

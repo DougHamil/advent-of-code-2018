@@ -40,6 +40,7 @@
      (for [[id k] karts]
        [:model {:type "carRed"
                 :rotation (:rotation k)
+                :scale [0.7 0.7 0.7]
                 :position (:position k)}])]
     [:object]))
 
@@ -176,27 +177,42 @@
                      :crashed crashed}))))
             (assoc grouped-karts :collided #{})
             sorted-karts)]
-    (swap! state assoc :karts (index-by-id (concat (:driving ticked-karts) (:crashed ticked-karts))))
-    (let [uncrashed (filter #(not= :crashed (:state %)) (vals (:karts @state)))]
-      (when (= 1 (count uncrashed))
-        (swap! state assoc :sim-state :paused)
-        (println "LAST KART" (:coords (first uncrashed)))))))
+    (swap! state assoc :karts (index-by-id (concat (:driving ticked-karts) (:crashed ticked-karts))))))
 
 (defn tick! [delta-time]
   (when (and (:karts @state)
-             (:track-map @state)
-             (not= :paused (:sim-state @state)))
-    (let [sim-speed-scale 2.0
+             (:track-map @state))
+    (let [sim-speed-scale (:simulation-speed-scale @state)
           sim-time (or (:sim-time @state) 0)
           sim-tick (int sim-time)
           new-sim-time (+ sim-time (* sim-speed-scale delta-time))
           new-sim-tick (int new-sim-time)
           sim-delta (- new-sim-time new-sim-tick)]
       (doseq [t (range (- new-sim-tick sim-tick))]
-        (when (not= :paused (:sim-state @state))
-          (simulation-tick!)))
+        (simulation-tick!))
       (swap! state assoc :karts (index-by-id (map (partial position-kart sim-delta) (vals (:karts @state)))))
       (swap! state assoc :sim-time new-sim-time))))
+
+(defn- find-horizontal-tile [track]
+  (let [size (count track)]
+    (loop [[x y] [0 0]]
+      (if-not (= :horizontal (util/aget2d track x y))
+        (recur [(rand-int size) (rand-int size)])
+        [x y]))))
+
+(defn add-kart! []
+  (let [track (:track-map @state)
+        [x y] (find-horizontal-tile track)]
+    (swap! state update :karts (fn [ks]
+                                 (assoc ks (str x "," y)
+                                  {:position [x (- y) 0]
+                                   :state :driving
+                                   :id (str x "," y)
+                                   :coords [x y]
+                                   :last-coords [x y]
+                                   :rotation (direction->rotation :right)
+                                   :turn-idx 0
+                                   :direction :right})))))
 
 (defn init! [track-text-array]
   (let [height (count track-text-array)

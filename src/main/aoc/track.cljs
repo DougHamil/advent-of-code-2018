@@ -40,6 +40,8 @@
                               "^" "|"
                               "v" "|"})
 
+(def decor-models ["tree" "flag"])
+
 (defn- track-text-to-array [txt]
   (let [a (array)]
     (doseq [line (clojure.string/split-lines txt)]
@@ -97,10 +99,10 @@
             (.push insts {:position (map + p offset)
                           :model-type (get track-segment-model t)
                           :rotation (get track-segment-rotation t)})
-            (when (< 5 (rand-int 10))
-              (.push insts {:position p
+            (when (< 4 (rand-int 10))
+              (.push insts {:position (map + p [0 0 -0.2])
                             :rotation [pi-over-2 0 0]
-                            :model-type "tree"}))))))
+                            :model-type (rand-nth decor-models)}))))))
     insts))
 
 (defn- parse-track [txt]
@@ -113,7 +115,8 @@
       [:object 
        ^{:on-added #(set! (.-receiveShadow %) true)}
        [:plane {:position [0 0 -0.1]
-                :material {:color 0x88AA88}
+                :material {:color 0x88AA88
+                           :shininess 0}
                 :scale [1000 1000 1]}]
        (for [[t instances] grouped-segments]
          [:instanced-models {:type t
