@@ -38,7 +38,8 @@
    [:div
     [:label "Focus:"]
     [:input {:type "range"
-             :style {:float "right"}
+             :style {:float "right"
+                     :width "300px"}
              :min "0.6"
              :max "1.0"
              :step "0.005"
@@ -49,7 +50,8 @@
     [:label "Speed:"]
     [:input {:type "range"
              :min "-100"
-             :style {:float "right"}
+             :style {:float "right"
+                     :width "300px"}
              :max "100"
              :step "0.5"
              :value @(r/cursor state [:simulation-speed-scale])
