@@ -148,9 +148,7 @@
       (if (= :intersection tile-type)
         (handle-intersection k)
         (let [new-dir (get-kart-direction (:direction k) tile-type)]
-          (-> k
-              (assoc :rotation (direction->rotation new-dir))
-              (assoc :direction new-dir)))))
+          (assoc k :direction new-dir))))
     k))
 
 (defn- tick-kart [track k]
@@ -159,14 +157,6 @@
     (->> k
          (move-kart)
          (steer-kart track))))
-
-(defn- apply-collisions [k all-karts colliding-karts]
-  (let [colliding (set colliding-karts)
-        uncolliding (filter #(not (colliding %)) all-karts)
-        colliding (if (empty? colliding)
-                    colliding
-                    (conj colliding k))]
-    (concat uncolliding (map #(assoc % :state :crashed) colliding))))
 
 (defn- find-colliding-kart [k orig-k karts]
   (let [coords (:coords k)]
@@ -184,28 +174,31 @@
         -1
         1))))
 
+(defn- tick-kart-reduce [track-map {:keys [driving crashed collided]} k]
+  (if (collided k)
+    {:driving driving
+     :crashed crashed
+     :collided collided}
+    (let [ticked (tick-kart track-map k)
+          colliding (find-colliding-kart ticked k driving)]
+      (if colliding
+        (let [as-set #{colliding k}]
+          {:driving (remove as-set driving)
+           :collided (clojure.set/union as-set collided)
+           :crashed (-> crashed
+                        (conj (assoc colliding :state :crashed))
+                        (conj (assoc ticked :state :crashed)))})
+        {:driving (conj (remove #{k} driving)
+                        ticked)
+         :collided collided
+         :crashed crashed}))))
+
 (defn- simulation-tick [track-map all-karts]
   (let [grouped-karts (group-by :state all-karts)
-        sorted-karts (sort-by kart-sort (:driving grouped-karts))
-        ticked-karts
-          (reduce
-            (fn [{:keys [driving crashed collided]} k]
-              (if (collided k)
-                {:driving driving :crashed crashed :collided collided}
-                (let [ticked (tick-kart track-map k)
-                      colliding (find-colliding-kart ticked k driving)]
-                  (if colliding
-                    (let [as-set #{colliding k}]
-                      {:driving (remove (partial contains? as-set) driving)
-                       :collided (set (concat as-set collided))
-                       :crashed (concat crashed [(assoc colliding :state :crashed)
-                                                 (assoc ticked :state :crashed)])})
-                    {:driving (conj (remove #{k} driving)
-                                    ticked)
-                     :collided collided
-                     :crashed crashed}))))
-            (assoc grouped-karts :collided #{})
-            sorted-karts)]
+        ordered-karts (sort kart-sort (:driving grouped-karts))
+        ticked-karts (reduce (partial tick-kart-reduce track-map)
+                             (assoc grouped-karts :collided #{})
+                             ordered-karts)]
     (sort-by :id (concat (:driving ticked-karts) (:crashed ticked-karts)))))
 
 (defn tick! [delta-time]

@@ -42,13 +42,15 @@
 
 (def decor-models ["tree" "flag" "treeLarge"])
 
-(defn- track-text-to-array [txt]
+(defn- track-text-to-array [txt normalize?]
   (let [a (array)]
     (doseq [line (clojure.string/split-lines txt)]
       (let [b (array)]
         (.push a b)
         (doseq [c line]
-          (.push b c))))
+          (.push b (if normalize?
+                     (get track-segment-normalize c c)
+                     c)))))
     a))
 
 (defn- char->track-segment [c a x y]
@@ -91,8 +93,7 @@
         insts (array)]
     (doseq [y (range height)]
       (doseq [x (range width)]
-        (let [c (aget (aget a y) x)
-              t (char->track-segment c a x y)
+        (let [t (aget (aget a y) x)
               offset (get track-segment-offset t [0 0 0])
               p [x (- y) 0]]
           (if t
@@ -105,17 +106,13 @@
                             :model-type (rand-nth decor-models)}))))))
     insts))
 
-(defn- parse-track [txt]
-  (let [a (track-text-to-array txt)]
-    (track-array-to-instances a)))
-
 (defn render []
   (if-let [track @(th/cursor state [:track])]
     (let [grouped-segments (group-by :model-type track)]
       [:object 
        ^{:on-added #(set! (.-receiveShadow %) true)}
-       [:plane {:position [0 0 -0.1]
-                :material {:color 0x88AA88
+       [:plane {:position [0 0 0]
+                :material {:color 0x4D8F6E
                            :shininess 0}
                 :scale [1000 1000 1]}]
        (for [[t instances] grouped-segments]
@@ -125,7 +122,7 @@
 
 (defn init! []
   (fetch "/input.txt" (fn [input-txt]
-                        (let [as-array (track-text-to-array input-txt)]
-                          (swap! state assoc :track-map (encode-map as-array))
-                          (swap! state assoc :track (parse-track input-txt))
-                          (kart/init! as-array)))))
+                        (let [track-map (encode-map (track-text-to-array input-txt true))]
+                          (swap! state assoc :track-map track-map)
+                          (swap! state assoc :track (track-array-to-instances track-map))
+                          (kart/init! (track-text-to-array input-txt false))))))

@@ -59,7 +59,8 @@
       (add-watch postfx-state
                  :focus-change
                   (fn [_ _ old new]
-                    (set! (.-value (.get (.-uniforms bokeh-effect) "focus")) (:focus new))))
+                    (set! (.-value (.get (.-uniforms bokeh-effect) "focus"))
+                          (:focus new))))
       (log composer)
       (set! (.-composer ctx) composer))))
 
@@ -76,6 +77,7 @@
   (ui/init!))
 
 (defn ^:dev/after-load reload []
+  (println "Reload")
   (setup-scene
    (th/render root
               (.getElementById js/document "root")
